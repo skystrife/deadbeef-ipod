@@ -205,7 +205,7 @@ static DB_misc_t plugin = {
          "along with this program; if not, write to the Free Software\n"
          "Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.\n"
     ,
-    .plugin.website = "",
+    .plugin.website = "https://github.com/skystrife/deadbeef-ipod",
     .plugin.start = ipod_start,
     .plugin.stop = ipod_stop,
     .plugin.get_actions = ipod_get_actions
