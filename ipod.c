@@ -33,8 +33,7 @@ GArray * ipod_get_selected_tracks() {
     return tracks;
 }
 
-const char * ipod_get_db_meta(DB_playItem_t * track, const char * key)
-{
+const char * ipod_get_db_meta(DB_playItem_t * track, const char * key) {
     const char * meta;
     meta = deadbeef->pl_find_meta(track, key);
     if (!meta)
@@ -42,14 +41,12 @@ const char * ipod_get_db_meta(DB_playItem_t * track, const char * key)
     return meta;
 }
 
-int ipod_get_db_meta_int(DB_playItem_t * track, const char * key)
-{
+int ipod_get_db_meta_int(DB_playItem_t * track, const char * key) {
     return deadbeef->pl_find_meta_int(track, key, 0);
 }
 
 // Taken from playlist.c:2827
-const char * ipod_get_db_albumartist(DB_playItem_t * track)
-{
+const char * ipod_get_db_albumartist(DB_playItem_t * track) {
     const char * meta;
     meta = deadbeef->pl_find_meta(track, "band");
     if (!meta) {
@@ -64,8 +61,7 @@ const char * ipod_get_db_albumartist(DB_playItem_t * track)
     return meta;
 }
 
-Itdb_Track * ipod_make_itdb_track(DB_playItem_t * track)
-{
+Itdb_Track * ipod_make_itdb_track(DB_playItem_t * track) {
     Itdb_Track * ipod_track;
 
     // construct
@@ -80,7 +76,6 @@ Itdb_Track * ipod_make_itdb_track(DB_playItem_t * track)
     ipod_track->cd_nr = ipod_get_db_meta_int(track, "disc");
     ipod_track->comment = g_strdup(ipod_get_db_meta(track, "comment"));
     ipod_track->tracklen = (int)(deadbeef->pl_get_item_duration(track) * 1000);
-    g_print("Track length: %d\n", ipod_track->tracklen);
 
     return ipod_track;
 }
@@ -154,14 +149,12 @@ void ipod_free_ipod_db() {
     ipod_db = NULL;
 }
 
-int ipod_start()
-{
+int ipod_start() {
     ipod_load_ipod_db();
     return 0;
 }
 
-int ipod_stop()
-{
+int ipod_stop() {
     ipod_free_ipod_db();
     return 0;
 }
@@ -174,8 +167,7 @@ static DB_plugin_action_t ipod_action = {
     .next = NULL
 };
 
-static DB_plugin_action_t * ipod_get_actions(DB_playItem_t * it)
-{
+static DB_plugin_action_t * ipod_get_actions(DB_playItem_t * it) {
     return &ipod_action;
 }
 
@@ -211,8 +203,7 @@ static DB_misc_t plugin = {
     .plugin.get_actions = ipod_get_actions
 };
 
-DB_plugin_t * ipod_load (DB_functions_t * api)
-{
+DB_plugin_t * ipod_load (DB_functions_t * api) {
     deadbeef = api;
     return DB_PLUGIN(&plugin);
 }
