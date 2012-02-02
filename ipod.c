@@ -4,8 +4,6 @@
 
 #include "ipod.h"
 
-DB_functions_t * deadbeef;
-
 GArray * ipod_get_selected_tracks() {
     // mostly copied from the converter plugin
     GArray * tracks = NULL;
@@ -76,6 +74,16 @@ Itdb_Track * ipod_make_itdb_track(DB_playItem_t * track) {
     ipod_track->cd_nr = ipod_get_db_meta_int(track, "disc");
     ipod_track->comment = g_strdup(ipod_get_db_meta(track, "comment"));
     ipod_track->tracklen = (int)(deadbeef->pl_get_item_duration(track) * 1000);
+
+    // grab artwork: first grab filename from deadbeef artwork plugin, then
+    // assign in to the track with libgpod
+    char * art_file = art_plugin->get_album_art_sync(
+            ipod_get_db_meta(track, ":URI"),
+            ipod_track->artist,
+            ipod_track->album,
+            -1
+        );
+    itdb_track_set_thumbnails(ipod_track, art_file);
 
     return ipod_track;
 }
@@ -151,6 +159,7 @@ void ipod_free_ipod_db() {
 
 int ipod_start() {
     ipod_load_ipod_db();
+    art_plugin = deadbeef->plug_get_for_id("artwork");
     return 0;
 }
 
