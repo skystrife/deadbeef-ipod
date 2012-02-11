@@ -84,7 +84,10 @@ Itdb_Track * ipod_make_itdb_track(DB_playItem_t * track) {
             ipod_track->album,
             -1
         );
-    itdb_track_set_thumbnails(ipod_track, art_file);
+    if (art_file != NULL) {
+        itdb_track_set_thumbnails(ipod_track, art_file);
+        g_free(art_file);
+    }
 
     return ipod_track;
 }
@@ -94,6 +97,11 @@ gboolean ipod_copy_track(DB_playItem_t * track) {
     Itdb_Track * ipod_track;
     GError * error;
     gboolean copy_success;
+
+    if (track == NULL) {
+        g_print("Error: Track is null!!");
+        return FALSE;
+    }
 
     error = NULL;
     filename = deadbeef->pl_find_meta(track, ":URI");
