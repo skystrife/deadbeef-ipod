@@ -3,6 +3,8 @@
  * Modified: 02/11/2012
  */
 #include "ipod.h"
+DB_functions_t * deadbeef;
+
 GArray * ipod_get_selected_tracks() {
     // mostly copied from the converter plugin
     GArray * tracks = NULL;
