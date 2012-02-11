@@ -4,8 +4,16 @@
  */
 #ifndef __DB_IPOD_H__
 #define __DB_IPOD_H__
+
+#include <gpod/itdb.h>
+#include <stdio.h>
+#include <deadbeef/deadbeef.h>
+// Hacky: include artwork.h from the deadbeef repo so we can use the
+// artwork plugin here.
+#include "artwork.h"
+
 extern DB_functions_t * deadbeef;
-static DB_plugin_t * art_plugin = NULL;
+static DB_artwork_plugin_t * art_plugin = NULL;
 static Itdb_iTunesDB * ipod_db = NULL;
 
 /**
@@ -54,7 +62,7 @@ const char * ipod_get_db_albumartist(DB_playItem_t * track);
  * @param track Pointer to a Deadbeef playlist item to convert.
  * @return A pointer to an Itdb_Track based on the playlist item.
  */
-ItdbTrack * ipod_make_itdb_track(DB_playItem_t * track);
+Itdb_Track * ipod_make_itdb_track(DB_playItem_t * track);
 
 /**
  * Copies a given Deadbeef playlist item to the ipod.

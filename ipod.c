@@ -1,9 +1,8 @@
-#include <gpod/itdb.h>
-#include <stdio.h>
-#include <deadbeef/deadbeef.h>
-
+/**
+ * ipod.c
+ * Modified: 02/11/2012
+ */
 #include "ipod.h"
-
 GArray * ipod_get_selected_tracks() {
     // mostly copied from the converter plugin
     GArray * tracks = NULL;
@@ -159,7 +158,7 @@ void ipod_free_ipod_db() {
 
 int ipod_start() {
     ipod_load_ipod_db();
-    art_plugin = deadbeef->plug_get_for_id("artwork");
+    art_plugin = (DB_artwork_plugin_t *) deadbeef->plug_get_for_id("artwork");
     return 0;
 }
 
