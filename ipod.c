@@ -33,6 +33,10 @@ GArray * ipod_get_selected_tracks() {
 }
 
 const char * ipod_get_db_meta(DB_playItem_t * track, const char * key) {
+    // special case album artist
+    if (g_strcmp0("album artist", key) == 0)
+        return ipod_get_db_albumartist(track);
+    // otherwise get meta normally
     const char * meta;
     meta = deadbeef->pl_find_meta(track, key);
     if (!meta)
@@ -70,14 +74,14 @@ Itdb_Track * ipod_make_itdb_track(DB_playItem_t * track) {
     ipod_track->title = g_strdup(ipod_get_db_meta(track, "title"));
     ipod_track->artist = g_strdup(ipod_get_db_meta(track, "artist"));
     ipod_track->album = g_strdup(ipod_get_db_meta(track, "album"));
-    ipod_track->albumartist = g_strdup(ipod_get_db_albumartist(track));
+    ipod_track->albumartist = g_strdup(ipod_get_db_meta(track, "album artist"));
     ipod_track->track_nr = ipod_get_db_meta_int(track, "track");
     ipod_track->cd_nr = ipod_get_db_meta_int(track, "disc");
     ipod_track->comment = g_strdup(ipod_get_db_meta(track, "comment"));
     ipod_track->tracklen = (int)(deadbeef->pl_get_item_duration(track) * 1000);
 
     // grab artwork: first grab filename from deadbeef artwork plugin, then
-    // assign in to the track with libgpod
+    // assign it to the track with libgpod
     char * art_file = art_plugin->get_album_art_sync(
             ipod_get_db_meta(track, ":URI"),
             ipod_track->artist,
@@ -92,22 +96,72 @@ Itdb_Track * ipod_make_itdb_track(DB_playItem_t * track) {
     return ipod_track;
 }
 
+char * ipod_convert_for_ipod(DB_playItem_t * track) {
+    // find our preset
+    ddb_encoder_preset_t * preset = converter_plugin->encoder_preset_get_list();
+    while (preset && g_strcmp0(preset->title, "iPod Convert") != 0)
+        preset = preset->next;
+    if (!preset) {
+        g_print("Error: failed to find preset...\n");
+        return NULL;
+    }
+    // get our output path
+    char out_folder[] = "/tmp/deadbeef_ipod_convertXXXXXX";
+    g_mkdtemp(out_folder);
+    g_print(out_folder);
+    char outpath[2000];
+    converter_plugin->get_output_path(track, out_folder, "%a - %t", preset, outpath, sizeof(outpath));
+    /*
+     * Invoke converter plugin:
+     *  - pass in track
+     *  - make temporary directory to store our file
+     *  - pass in a sane default for the filename
+     *  - use encoder default bps
+     *  - doesn't matter what we pass in for is float since it will be detected
+     *  - preserve folder structure? doesn't appear to be used
+     *  - root folder? doesn't appear to be used
+     *  - don't use a dsp preset
+     *  - store whether we were cancelled
+     */
+    int cancelled = 0;
+    int success = converter_plugin->convert(track, out_folder, "%a - %t", -1, 0, 0, NULL, preset, NULL, &cancelled);
+    if (cancelled || success == -1)
+        return NULL;
+    g_print("Finished converting for iPod...\n");
+    g_print("Wrote to %s...\n", outpath);
+    return g_strdup(outpath);
+}
+
 gboolean ipod_copy_track(DB_playItem_t * track) {
-    const char * filename;
+    char * filename;
+    char * filetype;
     Itdb_Track * ipod_track;
     GError * error;
     gboolean copy_success;
+    gboolean converted;
 
     if (track == NULL) {
         g_print("Error: Track is null!!");
         return FALSE;
     }
 
+    // construct our itdb representation
     error = NULL;
-    filename = deadbeef->pl_find_meta(track, ":URI");
     ipod_track = ipod_make_itdb_track(track);
     itdb_track_add(ipod_db, ipod_track, -1);
     itdb_playlist_add_track(itdb_playlist_mpl(ipod_db), ipod_track, -1);
+
+    // determine if we need to convert
+    filename = g_strdup(deadbeef->pl_find_meta(track, ":URI"));
+    filetype = g_strdup(deadbeef->pl_find_meta(track, ":FILETYPE"));
+    if (g_strcmp0("MP3", filetype) != 0 && g_strcmp0("MP4 AAC", filetype) != 0)
+        filename = ipod_convert_for_ipod(track);
+
+    if (filename == NULL) {
+        copy_success = FALSE;
+        g_print("Error copying file to ipod, aborting with message:\n\tNULL filename\n");
+        goto ipod_copy_track_exit;
+    }
     copy_success = itdb_cp_track_to_ipod(ipod_track, filename, &error);
     if (!copy_success) {
         itdb_track_free(ipod_track);
@@ -117,10 +171,13 @@ gboolean ipod_copy_track(DB_playItem_t * track) {
         }
     } else
         g_print("Successfully copied track to ipod!\n");
+ipod_copy_track_exit:
+    g_free(filename);
+    g_free(filetype);
     return copy_success;
 }
 
-static int ipod_copy_tracks() {
+void ipod_copy_tracks_worker(void * ctx) {
     GArray * tracks;
     GError * error;
     gboolean copy_success;
@@ -129,7 +186,8 @@ static int ipod_copy_tracks() {
     tracks = ipod_get_selected_tracks();
     if (tracks) {
         for (i = 0; i < tracks->len; i++) {
-            copy_success = ipod_copy_track(g_array_index(tracks, DB_playItem_t *, i));
+            DB_playItem_t * curr_track = g_array_index(tracks, DB_playItem_t *, i);
+            copy_success = ipod_copy_track(curr_track);
             if (!copy_success)
                 break;
         }
@@ -145,11 +203,17 @@ static int ipod_copy_tracks() {
         g_error_free(error);
     } else
         g_print("Successfully wrote ipod database!\n");
+}
+
+static int ipod_copy_tracks() {
+    intptr_t tid = deadbeef->thread_start(ipod_copy_tracks_worker, NULL);
+    deadbeef->thread_detach(tid);
     return 0;
 }
 
 void ipod_load_ipod_db() {
     // TODO: load in our ipod mountpoint from a file
+    g_print("Loading ipod db...\n");
     GError * error = NULL;
     if (ipod_db != NULL)
         itdb_free(ipod_db);
@@ -167,12 +231,15 @@ void ipod_free_ipod_db() {
 }
 
 int ipod_start() {
+    g_print("Starting iPod plugin...\n");
     ipod_load_ipod_db();
     art_plugin = (DB_artwork_plugin_t *) deadbeef->plug_get_for_id("artwork");
+    converter_plugin = (ddb_converter_t *) deadbeef->plug_get_for_id("converter");
     return 0;
 }
 
 int ipod_stop() {
+    g_print("Stopping iPod plugin...\n");
     ipod_free_ipod_db();
     return 0;
 }

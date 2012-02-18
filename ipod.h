@@ -7,13 +7,16 @@
 
 #include <gpod/itdb.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <deadbeef/deadbeef.h>
 // Hacky: include artwork.h from the deadbeef repo so we can use the
 // artwork plugin here.
 #include "artwork.h"
+#include "converter.h"
 
 extern DB_functions_t * deadbeef;
 static DB_artwork_plugin_t * art_plugin = NULL;
+static ddb_converter_t * converter_plugin = NULL;
 static Itdb_iTunesDB * ipod_db = NULL;
 
 /**
@@ -65,6 +68,18 @@ const char * ipod_get_db_albumartist(DB_playItem_t * track);
 Itdb_Track * ipod_make_itdb_track(DB_playItem_t * track);
 
 /**
+ * Converts a given Deadbeef playlist item into a format readable by the
+ * iPod. By default, will convert anything not matching filetype "MP3" or
+ * "MP4 AAC" by using the converter plugin preset "iPod Convert".
+ *
+ * TODO: Add default preset if we cannot find the "iPod Convert" preset.
+ * 
+ * @param track Pointer to the Deadbeef playlist item to convert.
+ * @return A string that refers to the new, converted file.
+ */
+char * ipod_convert_for_ipod(DB_playItem_t * track);
+
+/**
  * Copies a given Deadbeef playlist item to the ipod.
  *
  * @param track Pointer to the Deadbeef playlist item to be copied.
@@ -75,11 +90,18 @@ gboolean ipod_copy_track(DB_playItem_t * track);
 /**
  * Copies currently selected Deadbeef playlist items to the ipod. This is
  * currently the callback that happens when you click the track context
- * item menu for the plugin.
+ * item menu for the plugin. This creates a worker thread to sync with the
+ * ipod so the main thread remains unblocked.
  *
  * @return Integer success code (C style)
  */
 static int ipod_copy_tracks();
+
+/**
+ * Worker thread that copies the playlist items to the ipod.
+ * TODO: Make this have some kind of gui progress indication...
+ */
+void ipod_copy_tracks_worker(void * ctx);
 
 /**
  * Loads in the ipod database at our current mountpoint.
