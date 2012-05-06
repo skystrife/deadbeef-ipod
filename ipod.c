@@ -154,8 +154,10 @@ gboolean ipod_copy_track(DB_playItem_t * track) {
     // determine if we need to convert
     filename = g_strdup(deadbeef->pl_find_meta(track, ":URI"));
     filetype = g_strdup(deadbeef->pl_find_meta(track, ":FILETYPE"));
-    if (g_strcmp0("MP3", filetype) != 0 && g_strcmp0("MP4 AAC", filetype) != 0)
+    if (g_strcmp0("MP3", filetype) != 0 && g_strcmp0("MP4 AAC", filetype) != 0) {
+        g_free(filename);
         filename = ipod_convert_for_ipod(track);
+    }
 
     if (filename == NULL) {
         copy_success = FALSE;
