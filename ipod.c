@@ -162,18 +162,17 @@ gboolean ipod_copy_track(DB_playItem_t * track) {
     if (filename == NULL) {
         copy_success = FALSE;
         g_print("Error copying file to ipod, aborting with message:\n\tNULL filename\n");
-        goto ipod_copy_track_exit;
+    } else {
+        copy_success = itdb_cp_track_to_ipod(ipod_track, filename, &error);
+        if (!copy_success) {
+            itdb_track_free(ipod_track);
+            if (error && error->message) {
+                g_print("Error copying file to ipod, aborting with message:\n\t%s\n", error->message);
+                g_error_free(error);
+            }
+        } else
+            g_print("Successfully copied track to ipod!\n");
     }
-    copy_success = itdb_cp_track_to_ipod(ipod_track, filename, &error);
-    if (!copy_success) {
-        itdb_track_free(ipod_track);
-        if (error && error->message) {
-            g_print("Error copying file to ipod, aborting with message:\n\t%s\n", error->message);
-            g_error_free(error);
-        }
-    } else
-        g_print("Successfully copied track to ipod!\n");
-ipod_copy_track_exit:
     g_free(filename);
     g_free(filetype);
     return copy_success;
@@ -193,6 +192,8 @@ void ipod_copy_tracks_worker(void * ctx) {
             if (!copy_success)
                 break;
         }
+        // we currently have a reference for every item in our array: drop
+        // that reference
         for (i = 0; i < tracks->len; i++)
             deadbeef->pl_item_unref(g_array_index(tracks, DB_playItem_t *, i));
         g_array_free(tracks, FALSE);
@@ -250,7 +251,7 @@ static DB_plugin_action_t ipod_action = {
     .title = "Copy to iPod",
     .name = "ipod",
     .flags = DB_ACTION_CAN_MULTIPLE_TRACKS | DB_ACTION_ALLOW_MULTIPLE_TRACKS | DB_ACTION_SINGLE_TRACK,
-    .callback = ipod_copy_tracks,
+    .callback = DDB_ACTION_CALLBACK(ipod_copy_tracks),
     .next = NULL
 };
 
